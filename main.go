@@ -1,14 +1,14 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
+	"html/template"
+	"io"
 	"log"
 	"net/http"
 	"os"
-	"encoding/json"
-	"html/template"
-	"fmt"
 	"time"
-	"errors"
 )
 
 type AppError struct {
@@ -17,65 +17,47 @@ type AppError struct {
 	Error   error
 }
 
-// language=HTML format=true
-var tmpl = template.Must(template.New("").Parse(`
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-  <title>Golf</title>
-  <style>
-	table { border-collapse: collapse; border: 1px solid;}
-	th { text-align: left; padding-left: 0.4rem; padding-right: 0.4rem;}
-	tr:hover { background-color: #ccc; }
-</style>
-</head>
-<body>
-	<p>Updated: {{.LastUpdated}}</p>
-	{{with .Leaderboard }}
-		<h2>{{ .TourName }} - {{ .TournamentName }}</h2>
-		<h3>{{range .Courses}}{{ .CourseName }} {{end}}</h3>
-		<h4>{{ .StartDate }} - {{ .EndDate }}</h4>
-	
-		<p>Current Round: {{ .CurrentRound }}</p>
-		
-		<table>
-			<thead>
-				<tr>
-					<th>Position</th>
-					<th>Player</th>
-					<th>Country</th>
-					<th>Thru</th>
-					<th>Total</th>
-					<th>Today</th>
-					<th>Rounds</th>
-					<th>Strokes</th>
-				</tr>
-			</thead>
-			<tbody>
-			{{range .Players}}
-				<tr>
-					<td>{{ .CurrentPosition }}</td>
-					<td>{{ .PlayerBio.FirstName }} {{ .PlayerBio.LastName }}</td>
-					<td>{{ .PlayerBio.Country }}</td>
-					<td>{{ .Thru }}</td>
-					<td>{{ .Total }}</td>
-					<td style="text-align: center">{{ .Today }}</td>
-					<td>{{range .Rounds}}{{ .Strokes }} {{end}}</td>
-					<td style="text-align: right">{{ .TotalStrokes}}</td>
-				</tr>
-			{{end}}
-			</tbody>
-		</table>
-	{{end}}
-</body>
-</html>
-`))
+type Player struct {
+	Name            string
+	Country         string
+	CurrentPosition string
+	StartPosition   string
+	Through         int // holes completed
+	Hole            int // current hole
+	Today           int // par
+	Total           int // par
+	TotalStrokes    int // stroke
+	Rounds          []int
+}
+
+type Leaderboard struct {
+	Tour       string
+	Tournament string
+	Round      int
+	Location   string
+	Course     string
+	Date       string
+	Updated    string
+	Players    []*Player
+}
+
+type Tour interface {
+	Request() (*http.Request, error)
+	Parse(io.Reader) (*Leaderboard, error)
+	SetLeaderboard(*Leaderboard)
+	GetLeaderboard() *Leaderboard
+	GetLastUpdated() time.Time
+	SetLastUpdated(time.Time)
+}
+
+var tourmap = map[string]Tour{
+	"pga": &PGA{},
+	// "euro": &Euro{},
+}
+
+var tmpl *template.Template
 
 var client = http.Client{Timeout: time.Second * 10}
-var tournament Tournament
-var lastUpdated time.Time
 
 type Handler func(w http.ResponseWriter, r *http.Request) *AppError
 
@@ -118,86 +100,137 @@ func getListenAddr() string {
 	return "127.0.0.1:8000"
 }
 
-type Tournament struct {
-	LastUpdated string `json:"last_updated"`
-	Leaderboard struct {
-		Courses []struct {
-			CourseName string `json:"course_name"`
-		}
-		TournamentName string `json:"tournament_name"`
-		TourName       string `json:"tour_name"`
-		StartDate      string `json:"start_date"`
-		EndDate        string `json:"end_date"`
+func parseTemplate() {
+	// language=HTML format=true
+	tmpl = template.Must(template.New("leaderboard").Parse(`
+		<h2>{{ .Tour }} - {{ .Tournament }}</h2>
+		<h3>{{ .Course }}</h3>
+		<h4>{{ .Date }}</h4>
+	
+		<p>Current Round: {{ .Round }} | Updated: {{ .Updated }}</p>
+		
+		<table>
+			<thead>
+				<tr>
+					<th>Position</th>
+					<th>Started</th>
+					<th>Player</th>
+					<th>Country</th>
+					<th>Hole</th>
+					<th>Through</th>
+					<th>Total</th>
+					<th>Today</th>
+					<th>Rounds</th>
+					<th>Strokes</th>
+				</tr>
+			</thead>
+			<tbody>
+			{{range .Players}}
+				<tr>
+					<td>{{ .CurrentPosition }}</td>
+					<td>{{ .StartPosition }}</td>
+					<td>{{ .Name }}</td>
+					<td style="text-align: right">{{ .Country }}</td>
+					<td style="text-align: right">{{ .Hole }}</td>
+					<td style="text-align: right">{{ .Through }}</td>
+					<td style="text-align: right">{{ .Total }}</td>
+					<td style="text-align: right">{{ .Today }}</td>
+					<td style="padding-left: 1rem">{{range .Rounds}}{{ . }} {{end}}</td>
+					<td style="text-align: right">{{ .TotalStrokes}}</td>
+				</tr>
+			{{end}}
+			</tbody>
+		</table>
+	`))
 
-		CurrentRound int `json:"current_round"`
-
-		Players []struct {
-			CourseHole      int    `json:"course_hole"`
-			CurrentPosition string `json:"current_position"`
-			StartPosition   string `json:"start_position"`
-			Thru            int
-			Today           int
-			Total           int
-			TotalStrokes    int    `json:"total_strokes"`
-			PlayerBio struct {
-				Country   string `json:"country"`
-				FirstName string `json:"first_name"`
-				LastName  string `json:"last_name"`
-				ShortName string `json:"short_name"`
-			} `json:"player_bio"`
-			Rounds []struct {
-				RoundNumber int `json:"round_number"`
-				Strokes     int `json:"strokes"`
-			}
-		} `json:"players"`
-	} `json:"leaderboard"`
+	// language=HTML format=true
+	tmpl.New("").Parse(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <title>Golf</title>
+  <style>
+	table { border-collapse: collapse; border: 1px solid;}
+	th { text-align: left; padding-left: 0.4rem; padding-right: 0.4rem;}
+	tr:hover { background-color: #ccc; }
+</style>
+</head>
+<body>
+	{{range .Leaderboards}}{{template "leaderboard" .}}{{end}}
+</body>
+</html>
+`)
 }
 
-func updateTournament() error {
-	if time.Now().Sub(lastUpdated) < time.Second * 60 {
-		return nil // still fresh
-	}
-	var current struct {
-		TID string `json:"tid"`
-	}
-	resp, err := client.Get("https://statdata.pgatour.com/r/current/message.json")
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if err := json.NewDecoder(resp.Body).Decode(&current); err != nil {
-		return err
+func updateTournaments() {
+
+	errs := make(chan error, len(tourmap))
+
+	for slug, tour := range tourmap {
+
+		if time.Now().Sub(tour.GetLastUpdated()) < time.Second*60 {
+			continue
+		}
+
+		fmt.Println("Updating", slug)
+
+		go func(t Tour) {
+			r, err := t.Request()
+			if err != nil {
+				errs <- err
+				return
+			}
+			resp, err := client.Do(r)
+			if err != nil {
+				errs <- err
+				return
+			}
+			defer resp.Body.Close()
+			lb, err := t.Parse(resp.Body)
+			if err != nil {
+				errs <- err
+				return
+			}
+			t.SetLeaderboard(lb)
+			t.SetLastUpdated(time.Now())
+			errs <- nil
+		}(tour)
+
 	}
 
-	if current.TID == "" {
-		return errors.New("TID is empty")
+	for i := 0; i < len(tourmap); i++ {
+		e := <-errs
+		if e != nil {
+			fmt.Println(e)
+		}
 	}
-	resp, err = client.Get(fmt.Sprintf("https://statdata.pgatour.com/r/%s/leaderboard-v2mini.json", current.TID))
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	lastUpdated = time.Now()
-	return json.NewDecoder(resp.Body).Decode(&tournament)
 
+}
+
+type TemplateContext struct {
+	Leaderboards map[string]*Leaderboard
 }
 
 func index(w http.ResponseWriter, r *http.Request) *AppError {
+	ctx := &TemplateContext{Leaderboards: map[string]*Leaderboard{}}
 
-	err := updateTournament()
-	if err != nil {
-		return &AppError{Code: 500, Message: "Error parsing upstream data", Error: err}
+	updateTournaments()
+	for slug, tour := range tourmap {
+		ctx.Leaderboards[slug] = tour.GetLeaderboard()
 	}
 
 	if r.URL.Query().Get("format") == "json" {
-		return renderJSON(w, &tournament)
+		return renderJSON(w, &ctx)
 	}
-	return renderTemplate(w, &tournament)
+	return renderTemplate(w, &ctx)
 
 }
 
 func main() {
 
+	parseTemplate()
 	http.Handle("/", HandlerFunc(index))
 	addr := getListenAddr()
 	fmt.Println("Listening on", addr)
