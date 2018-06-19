@@ -176,6 +176,7 @@ func updateTournaments() {
 	for _, tour := range tours {
 
 		if time.Now().Sub(tour.LastUpdated()) < time.Second*60 {
+			errs <- nil
 			continue
 		}
 
