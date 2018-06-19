@@ -45,14 +45,14 @@ type Tour interface {
 	Request() (*http.Request, error)
 	Parse(io.Reader) (*Leaderboard, error)
 	SetLeaderboard(*Leaderboard)
-	GetLeaderboard() *Leaderboard
-	GetLastUpdated() time.Time
+	Leaderboard() *Leaderboard
+	LastUpdated() time.Time
 	SetLastUpdated(time.Time)
 }
 
-var tourmap = map[string]Tour{
-	"pga": &PGA{},
-	// "euro": &Euro{},
+var tours = []Tour{
+	&PGA{},
+	&Euro{},
 }
 
 var tmpl *template.Template
@@ -103,11 +103,15 @@ func getListenAddr() string {
 func parseTemplate() {
 	// language=HTML format=true
 	tmpl = template.Must(template.New("leaderboard").Parse(`
-		<h2>{{ .Tour }} - {{ .Tournament }}</h2>
+		<h1>{{ .Tour }} - {{ .Tournament }}</h1>
+		{{if .Location}}
+		<h3>{{ .Location }}</h3>
+		{{end}}
 		<h3>{{ .Course }}</h3>
+		{{if .Date}}
 		<h4>{{ .Date }}</h4>
-	
-		<p>Current Round: {{ .Round }} | Updated: {{ .Updated }}</p>
+		{{end}}
+		<p>Current Round: {{ .Round }}{{if .Updated}} | Updated: {{ .Updated }}{{end}}</p>
 		
 		<table>
 			<thead>
@@ -152,9 +156,10 @@ func parseTemplate() {
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
   <title>Golf</title>
   <style>
-	table { border-collapse: collapse; border: 1px solid;}
-	th { text-align: left; padding-left: 0.4rem; padding-right: 0.4rem;}
-	tr:hover { background-color: #ccc; }
+	html { font-family: monospace }
+	table { border-collapse: collapse; border: 1px solid }
+	th { text-align: left; padding-left: 0.4rem; padding-right: 0.4rem }
+	tr:hover { background-color: #ccc }
 </style>
 </head>
 <body>
@@ -166,15 +171,15 @@ func parseTemplate() {
 
 func updateTournaments() {
 
-	errs := make(chan error, len(tourmap))
+	errs := make(chan error, len(tours))
 
-	for slug, tour := range tourmap {
+	for _, tour := range tours {
 
-		if time.Now().Sub(tour.GetLastUpdated()) < time.Second*60 {
+		if time.Now().Sub(tour.LastUpdated()) < time.Second*60 {
 			continue
 		}
 
-		fmt.Println("Updating", slug)
+		fmt.Println("Updating", tour)
 
 		go func(t Tour) {
 			r, err := t.Request()
@@ -200,7 +205,7 @@ func updateTournaments() {
 
 	}
 
-	for i := 0; i < len(tourmap); i++ {
+	for i := 0; i < len(tours); i++ {
 		e := <-errs
 		if e != nil {
 			fmt.Println(e)
@@ -210,15 +215,15 @@ func updateTournaments() {
 }
 
 type TemplateContext struct {
-	Leaderboards map[string]*Leaderboard
+	Leaderboards []*Leaderboard
 }
 
 func index(w http.ResponseWriter, r *http.Request) *AppError {
-	ctx := &TemplateContext{Leaderboards: map[string]*Leaderboard{}}
+	ctx := &TemplateContext{}
 
 	updateTournaments()
-	for slug, tour := range tourmap {
-		ctx.Leaderboards[slug] = tour.GetLeaderboard()
+	for _, tour := range tours {
+		ctx.Leaderboards = append(ctx.Leaderboards, tour.Leaderboard())
 	}
 
 	if r.URL.Query().Get("format") == "json" {

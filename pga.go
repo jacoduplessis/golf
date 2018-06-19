@@ -10,8 +10,8 @@ import (
 )
 
 type PGA struct {
-	LastUpdated time.Time
-	Leaderboard *Leaderboard
+	lastUpdated time.Time
+	leaderboard *Leaderboard
 }
 
 func (pga *PGA) String() string {
@@ -76,19 +76,19 @@ func (pga *PGA) Parse(r io.Reader) (*Leaderboard, error) {
 }
 
 func (pga *PGA) SetLeaderboard(lb *Leaderboard) {
-	pga.Leaderboard = lb
+	pga.leaderboard = lb
 }
 
-func (pga *PGA) GetLeaderboard() *Leaderboard {
-	return pga.Leaderboard
+func (pga *PGA) Leaderboard() *Leaderboard {
+	return pga.leaderboard
 }
 
-func (pga *PGA) GetLastUpdated() time.Time {
-	return pga.LastUpdated
+func (pga *PGA) LastUpdated() time.Time {
+	return pga.lastUpdated
 }
 
 func (pga *PGA) SetLastUpdated(t time.Time) {
-	pga.LastUpdated = t
+	pga.lastUpdated = t
 }
 
 type PGALeaderboard struct {
