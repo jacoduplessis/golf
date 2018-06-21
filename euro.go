@@ -69,7 +69,7 @@ func (euro *Euro) Parse(r io.Reader) (*Leaderboard, error) {
 		}
 		today, _ := strconv.Atoi(p.Today)
 		total, _ := strconv.Atoi(p.Topar)
-		through, _ := strconv.Atoi(p.HolesPlayed)
+		after, _ := strconv.Atoi(p.HolesPlayed)
 		hole, _ := strconv.Atoi(p.Hole)
 		var rounds []int
 		if rs := p.R1; rs != "" {
@@ -103,7 +103,7 @@ func (euro *Euro) Parse(r io.Reader) (*Leaderboard, error) {
 			Today:           today,
 			CurrentPosition: p.Position,
 			Total:           total,
-			Through:         through,
+			After:           after,
 			Hole:            hole,
 			Rounds:          rounds,
 		})

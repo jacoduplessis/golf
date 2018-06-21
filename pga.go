@@ -57,7 +57,7 @@ func (pga *PGA) Parse(r io.Reader) (*Leaderboard, error) {
 			StartPosition:   p.StartPosition,
 			Today:           p.Today,
 			Total:           p.Total,
-			Through:         p.Thru,
+			After:           p.Thru,
 			Hole:            p.CourseHole,
 			TotalStrokes:    p.TotalStrokes,
 			Rounds:          rounds,

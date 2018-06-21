@@ -23,7 +23,7 @@ type Player struct {
 	Country         string
 	CurrentPosition string
 	StartPosition   string
-	Through         int // holes completed
+	After           int // holes completed
 	Hole            int // current hole
 	Today           int // par
 	Total           int // par
@@ -109,7 +109,6 @@ func parseTemplate() {
 	<div style="margin-right: 1rem">	
 		<h1>{{ .Tour }} - {{ .Tournament }}</h1>
 		<h3>{{ .Course }}{{if .Location}}, {{ .Location }}{{end}}</h3>
-		<p style="display: flex; justify-content: space-between"><span>Current Round: {{ .Round }}</span>{{if .Updated}}<span>Updated: {{ .Updated }}</span>{{end}}</p>
 		<table>
 			<thead>
 				<tr>
@@ -118,7 +117,7 @@ func parseTemplate() {
 					<th>Player</th>
 					<th>Country</th>
 					<th>Hole</th>
-					<th>Through</th>
+					<th>After</th>
 					<th>Total</th>
 					<th>Today</th>
 					<th>Rounds</th>
@@ -133,10 +132,10 @@ func parseTemplate() {
 					<td>{{ .Name }}</td>
 					<td style="text-align: right">{{ .Country }}</td>
 					<td style="text-align: right">{{ .Hole }}</td>
-					<td style="text-align: right">{{ .Through }}</td>
+					<td style="text-align: right">{{ .After }}</td>
 					<td style="text-align: right">{{ .Total }}</td>
 					<td style="text-align: right">{{ .Today }}</td>
-					<td style="padding-left: 1rem">{{range .Rounds}}{{ . }} {{end}}</td>
+					<td style="padding-left: 1rem">{{range .Rounds}}{{if .}}{{ . }} {{end}}{{end}}</td>
 					<td style="text-align: right">{{ .TotalStrokes}}</td>
 				</tr>
 			{{end}}
