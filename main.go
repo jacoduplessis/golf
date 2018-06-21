@@ -103,16 +103,10 @@ func getListenAddr() string {
 func parseTemplate() {
 	// language=HTML format=true
 	tmpl = template.Must(template.New("leaderboard").Parse(`
+	<div style="margin-right: 1rem">	
 		<h1>{{ .Tour }} - {{ .Tournament }}</h1>
-		{{if .Location}}
-		<h3>{{ .Location }}</h3>
-		{{end}}
-		<h3>{{ .Course }}</h3>
-		{{if .Date}}
-		<h4>{{ .Date }}</h4>
-		{{end}}
-		<p>Current Round: {{ .Round }}{{if .Updated}} | Updated: {{ .Updated }}{{end}}</p>
-		
+		<h3>{{ .Course }}{{if .Location}}, {{ .Location }}{{end}}</h3>
+		<p style="display: flex; justify-content: space-between"><span>Current Round: {{ .Round }}</span>{{if .Updated}}<span>Updated: {{ .Updated }}</span>{{end}}</p>
 		<table>
 			<thead>
 				<tr>
@@ -145,6 +139,7 @@ func parseTemplate() {
 			{{end}}
 			</tbody>
 		</table>
+	</div>
 	`))
 
 	// language=HTML format=true
@@ -163,7 +158,10 @@ func parseTemplate() {
 </style>
 </head>
 <body>
+	<div style="display: flex; flex-flow: row wrap">
 	{{range .Leaderboards}}{{template "leaderboard" .}}{{end}}
+	</div>
+	<p>Get this data as JSON by appending <code>?format=json</code> to the URL.</p>
 </body>
 </html>
 `)
@@ -199,6 +197,9 @@ func updateTournaments() {
 				errs <- err
 				return
 			}
+			// TODO: refactor
+			// this is bad as we're mutating from within goroutine
+			// need another channel to pass return values
 			t.SetLeaderboard(lb)
 			t.SetLastUpdated(time.Now())
 			errs <- nil
