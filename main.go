@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -66,7 +67,7 @@ func (fn Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 	if apperr := fn(w, r); apperr != nil {
 		http.Error(w, apperr.Message, apperr.Code)
-		log.Println(apperr.Error.Error())
+		log.Println(apperr.Error)
 	}
 }
 
@@ -75,17 +76,19 @@ func HandlerFunc(fn func(w http.ResponseWriter, r *http.Request) *AppError) Hand
 }
 
 func renderTemplate(w http.ResponseWriter, data interface{}) *AppError {
-
-	if err := tmpl.ExecuteTemplate(w, "", data); err != nil {
-		return &AppError{"Template error", 500, err}
+	b := bytes.Buffer{}
+	if err := tmpl.ExecuteTemplate(&b, "", data); err != nil {
+		return &AppError{"Unavailable, please try again in a minute.", 500, err}
 	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	b.WriteTo(w)
 	return nil
 }
 
 func renderJSON(w http.ResponseWriter, data interface{}) *AppError {
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(data); err != nil {
-		return &AppError{"Could not write response", 500, err}
+		return &AppError{"Unavailable, please try again in a minute.", 500, err}
 	}
 	return nil
 }
@@ -161,7 +164,7 @@ func parseTemplate() {
 	<div style="display: flex; flex-flow: row wrap">
 	{{range .Leaderboards}}{{template "leaderboard" .}}{{end}}
 	</div>
-	<p>Get this data as JSON by appending <code>?format=json</code> to the URL.</p>
+	<p><a href="/?format=json">Get this data as JSON.</a></p>
 </body>
 </html>
 `)
