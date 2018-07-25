@@ -71,10 +71,6 @@ func (fn Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func HandlerFunc(fn func(w http.ResponseWriter, r *http.Request) *AppError) Handler {
-	return fn
-}
-
 func renderTemplate(w http.ResponseWriter, data interface{}) *AppError {
 	b := bytes.Buffer{}
 	if err := tmpl.ExecuteTemplate(&b, "", data); err != nil {
@@ -240,7 +236,7 @@ func index(w http.ResponseWriter, r *http.Request) *AppError {
 func main() {
 
 	parseTemplate()
-	http.Handle("/", HandlerFunc(index))
+	http.Handle("/", Handler(index))
 	addr := getListenAddr()
 	fmt.Println("Listening on", addr)
 	log.Fatal(http.ListenAndServe(addr, nil))
