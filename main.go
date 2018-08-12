@@ -103,33 +103,31 @@ func parseTemplate() {
 	// language=HTML format=true
 	tmpl = template.Must(template.New("leaderboard").Parse(`
 	<div style="margin-right: 1rem">	
-		<h1>{{ .Tour }} - {{ .Tournament }}</h1>
+		<h3>{{ .Tour }} - {{ .Tournament }}</h1>
 		<h3>{{ .Course }}{{if .Location}}, {{ .Location }}{{end}}</h3>
 		<table>
 			<thead>
 				<tr>
-					<th>Position</th>
-					<th>Started</th>
+					<th title="position">Pos</th>
+					<th>Par</th>
 					<th>Player</th>
-					<th>Country</th>
-					<th>Hole</th>
-					<th>After</th>
-					<th>Total</th>
-					<th>Today</th>
+					<th title="nationality">Nat</th>
+					<th title="current hole">On</th>
+					<th title="holes played">Pl</th>
+					<th title="this round">Rd</th>
 					<th>Rounds</th>
-					<th>Strokes</th>
+					<th title="number of strokes">Total</th>
 				</tr>
 			</thead>
 			<tbody>
 			{{range .Players}}
 				<tr>
 					<td>{{ .CurrentPosition }}</td>
-					<td>{{ .StartPosition }}</td>
+					<td style="text-align: right">{{ .Total }}</td>
 					<td>{{ .Name }}</td>
 					<td style="text-align: right">{{ .Country }}</td>
 					<td style="text-align: right">{{ .Hole }}</td>
 					<td style="text-align: right">{{ .After }}</td>
-					<td style="text-align: right">{{ .Total }}</td>
 					<td style="text-align: right">{{ .Today }}</td>
 					<td style="padding-left: 1rem">{{range .Rounds}}{{if .}}{{ . }} {{end}}{{end}}</td>
 					<td style="text-align: right">{{ .TotalStrokes}}</td>
@@ -153,6 +151,7 @@ func parseTemplate() {
 	table { border-collapse: collapse; border: 1px solid }
 	th { text-align: left; padding-left: 0.4rem; padding-right: 0.4rem }
 	tr:hover { background-color: #ccc }
+	td:nth-of-type(3) { padding-left: 10px }
 </style>
 </head>
 <body>
@@ -167,48 +166,42 @@ func parseTemplate() {
 
 func updateTournaments() {
 
-	errs := make(chan error, len(tours))
+	results := make(chan *Leaderboard, len(tours))
 
 	for _, tour := range tours {
-
-		if time.Now().Sub(tour.LastUpdated()) < time.Second*60 {
-			errs <- nil
-			continue
-		}
-
-		fmt.Println("Updating", tour)
 
 		go func(t Tour) {
 			r, err := t.Request()
 			if err != nil {
-				errs <- err
+				log.Printf("Error getting update request: %s\n", err)
+				results <- nil
 				return
 			}
 			resp, err := client.Do(r)
 			if err != nil {
-				errs <- err
+				log.Printf("Error performing update request: %s\n", err)
+				results <- nil
 				return
 			}
 			defer resp.Body.Close()
 			lb, err := t.Parse(resp.Body)
 			if err != nil {
-				errs <- err
+				log.Printf("Error parsing leaderboard response: %s\n", err)
+				results <- nil
 				return
 			}
-			// TODO: refactor
-			// this is bad as we're mutating from within goroutine
-			// need another channel to pass return values
-			t.SetLeaderboard(lb)
-			t.SetLastUpdated(time.Now())
-			errs <- nil
+			results <- lb
+
 		}(tour)
 
 	}
 
 	for i := 0; i < len(tours); i++ {
-		e := <-errs
-		if e != nil {
-			fmt.Println(e)
+		lb := <-results
+		tour := tours[i]
+		if lb != nil {
+			tour.SetLeaderboard(lb)
+			tour.SetLastUpdated(time.Now())
 		}
 	}
 
@@ -221,7 +214,6 @@ type TemplateContext struct {
 func index(w http.ResponseWriter, r *http.Request) *AppError {
 	ctx := &TemplateContext{}
 
-	updateTournaments()
 	for _, tour := range tours {
 		ctx.Leaderboards = append(ctx.Leaderboards, tour.Leaderboard())
 	}
@@ -233,9 +225,22 @@ func index(w http.ResponseWriter, r *http.Request) *AppError {
 
 }
 
+func intervalUpdate() {
+
+	ticker := time.NewTicker(1 * time.Minute)
+	go func() {
+		for range ticker.C {
+			updateTournaments()
+		}
+	}()
+}
+
 func main() {
 
+	updateTournaments()
+	intervalUpdate()
 	parseTemplate()
+
 	http.Handle("/", Handler(index))
 	addr := getListenAddr()
 	fmt.Println("Listening on", addr)
