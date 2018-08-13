@@ -97,6 +97,13 @@ func (euro *Euro) Parse(r io.Reader) (*Leaderboard, error) {
 			rounds = append(rounds, r)
 		}
 
+		var totalStrokes int
+		for _, rd := range rounds {
+			if rd > 40 {
+				totalStrokes += rd
+			}
+		}
+
 		players = append(players, &Player{
 			Name:            p.Name,
 			Country:         p.Countrycode,
@@ -106,6 +113,7 @@ func (euro *Euro) Parse(r io.Reader) (*Leaderboard, error) {
 			After:           after,
 			Hole:            hole,
 			Rounds:          rounds,
+			TotalStrokes:    totalStrokes,
 		})
 	}
 	meta := d.LeaderboardCourseInfoData[0]
