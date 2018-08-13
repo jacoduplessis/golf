@@ -105,7 +105,7 @@ func parseTemplate() {
 	// language=HTML format=true
 	tmpl = template.Must(template.New("leaderboard").Parse(`
 	<div style="margin-right: 1rem">	
-		<h3>{{ .Tour }} - {{ .Tournament }}</h1>
+		<h3>{{ .Tour }} - {{ .Tournament }}</h3>
 		<h3>{{ .Course }}{{if .Location}}, {{ .Location }}{{end}}</h3>
 		<table>
 			<thead>
