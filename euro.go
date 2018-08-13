@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/andybalholm/cascadia"
 	"golang.org/x/net/html"
@@ -17,21 +18,26 @@ import (
 type Euro struct {
 	lastUpdated time.Time
 	leaderboard *Leaderboard
+	tid         string
 }
 
 var tidSelector = cascadia.MustCompile("#ETContainer_thisWeek>div")
 
-func (euro *Euro) CurrentTID() (string, error) {
+func (euro *Euro) TID() string {
+	return euro.tid
+}
+
+func (euro *Euro) UpdateTID() error {
 
 	res, err := client.Get("http://www.europeantour.com")
 	if err != nil {
-		return "", err
+		return err
 	}
 	defer res.Body.Close()
 	var tid string
 	root, err := html.Parse(res.Body)
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	d := tidSelector.MatchFirst(root)
@@ -40,16 +46,16 @@ func (euro *Euro) CurrentTID() (string, error) {
 			tid = a.Val
 		}
 	}
-	return tid, nil
+	if tid == "" {
+		return errors.New("Euro TID is empty")
+	}
+	euro.tid = tid
+	return nil
 }
 
 func (euro *Euro) Request() (*http.Request, error) {
 
-	tid, err := euro.CurrentTID()
-	if err != nil {
-		return nil, err
-	}
-	u := fmt.Sprintf("http://www.europeantour.com/data/tournament/%s/leaderboard/languagecode/eng/isproam/0/feed/", tid)
+	u := fmt.Sprintf("http://www.europeantour.com/data/tournament/%s/leaderboard/languagecode/eng/isproam/0/feed/", euro.TID())
 	return http.NewRequest("GET", u, nil)
 }
 

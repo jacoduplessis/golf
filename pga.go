@@ -12,28 +12,39 @@ import (
 type PGA struct {
 	lastUpdated time.Time
 	leaderboard *Leaderboard
+	tid         string
 }
 
 func (pga *PGA) String() string {
 	return "PGA Tour"
 }
 
-func (pga *PGA) Request() (*http.Request, error) {
+func (pga *PGA) TID() string {
+	return pga.tid
+}
+
+func (pga *PGA) UpdateTID() error {
 	var current struct {
 		TID string `json:"tid"`
 	}
 	resp, err := client.Get("https://statdata.pgatour.com/r/current/message.json")
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer resp.Body.Close()
 	if err := json.NewDecoder(resp.Body).Decode(&current); err != nil {
-		return nil, err
+		return err
 	}
 	if current.TID == "" {
-		return nil, errors.New("TID is empty")
+		return errors.New("TID is empty")
 	}
-	u := fmt.Sprintf("https://statdata.pgatour.com/r/%s/leaderboard-v2mini.json", current.TID)
+	pga.tid = current.TID
+	return nil
+}
+
+func (pga *PGA) Request() (*http.Request, error) {
+
+	u := fmt.Sprintf("https://statdata.pgatour.com/r/%s/leaderboard-v2mini.json", pga.TID())
 	return http.NewRequest("GET", u, nil)
 }
 

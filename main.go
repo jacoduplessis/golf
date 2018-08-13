@@ -45,10 +45,12 @@ type Leaderboard struct {
 type Tour interface {
 	Request() (*http.Request, error)
 	Parse(io.Reader) (*Leaderboard, error)
-	SetLeaderboard(*Leaderboard)
 	Leaderboard() *Leaderboard
+	SetLeaderboard(*Leaderboard)
 	LastUpdated() time.Time
 	SetLastUpdated(time.Time)
+	TID() string
+	UpdateTID() error
 }
 
 var tours = []Tour{
@@ -166,6 +168,24 @@ func parseTemplate() {
 
 func updateTournaments() {
 
+	errs := make(chan error, len(tours))
+
+	for _, tour := range tours {
+		go func(t Tour) {
+			errs <- t.UpdateTID()
+		}(tour)
+	}
+
+	for range tours {
+		err := <-errs
+		if err != nil {
+			log.Printf("Error updating TID: %s", err)
+		}
+	}
+}
+
+func updateLeaderboards() {
+
 	results := make(chan *Leaderboard, len(tours))
 
 	for _, tour := range tours {
@@ -196,9 +216,8 @@ func updateTournaments() {
 
 	}
 
-	for i := 0; i < len(tours); i++ {
+	for _, tour := range tours {
 		lb := <-results
-		tour := tours[i]
 		if lb != nil {
 			tour.SetLeaderboard(lb)
 			tour.SetLastUpdated(time.Now())
@@ -227,20 +246,32 @@ func index(w http.ResponseWriter, r *http.Request) *AppError {
 
 func intervalUpdate() {
 
-	ticker := time.NewTicker(1 * time.Minute)
+	tickerLeaderboards := time.NewTicker(1 * time.Minute)
 	go func() {
-		for range ticker.C {
+		for range tickerLeaderboards.C {
+			updateLeaderboards()
+		}
+	}()
+
+	tickerTournaments := time.NewTicker(6 * time.Hour)
+	go func() {
+		for range tickerTournaments.C {
 			updateTournaments()
 		}
 	}()
+
 }
 
 func main() {
 
+	// initial data
 	updateTournaments()
-	intervalUpdate()
-	parseTemplate()
+	updateLeaderboards()
 
+	// setup tickers
+	intervalUpdate()
+
+	parseTemplate()
 	http.Handle("/", Handler(index))
 	addr := getListenAddr()
 	fmt.Println("Listening on", addr)
