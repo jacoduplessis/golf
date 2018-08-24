@@ -15,6 +15,9 @@ import (
 // http://www.europeantour.com/library/MyEt/TourType=1/leaderboardJSON.js
 // http://www.europeantour.com/data/tournament/2018050/leaderboard/languagecode/eng/isproam/0/feed/
 
+// can also get tid here
+// http://app.europeantour.com/mobile/
+
 type Euro struct {
 	lastUpdated time.Time
 	leaderboard *Leaderboard
@@ -59,6 +62,17 @@ func (euro *Euro) Request() (*http.Request, error) {
 	return http.NewRequest("GET", u, nil)
 }
 
+func appendRound(rounds []int, rs string) []int {
+	r, err := strconv.Atoi(rs)
+	if err != nil {
+		return rounds
+	}
+	if r > 40 {
+		rounds = append(rounds, r)
+	}
+	return rounds
+}
+
 func (euro *Euro) Parse(r io.Reader) (*Leaderboard, error) {
 
 	var d EuroLeaderboard
@@ -78,29 +92,9 @@ func (euro *Euro) Parse(r io.Reader) (*Leaderboard, error) {
 		after, _ := strconv.Atoi(p.HolesPlayed)
 		hole, _ := strconv.Atoi(p.Hole)
 		var rounds []int
-		if rs := p.R1; rs != "" {
-			r, _ := strconv.Atoi(rs)
-			rounds = append(rounds, r)
-		}
-		if rs := p.R2; rs != "" {
-			r, _ := strconv.Atoi(rs)
-			rounds = append(rounds, r)
-		}
-		if rs := p.R3; rs != "" {
-			r, _ := strconv.Atoi(rs)
-			rounds = append(rounds, r)
-		}
-		if rs := p.R4; rs != "" {
-			r, _ := strconv.Atoi(rs)
-			rounds = append(rounds, r)
-		}
-		if rs := p.R5; rs != "" {
-			r, _ := strconv.Atoi(rs)
-			rounds = append(rounds, r)
-		}
-		if rs := p.R6; rs != "" {
-			r, _ := strconv.Atoi(rs)
-			rounds = append(rounds, r)
+
+		for _, rs := range []string{p.R1, p.R2, p.R3, p.R4, p.R5, p.R6} {
+			rounds = appendRound(rounds, rs)
 		}
 
 		var totalStrokes int
