@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"html/template"
 	"io"
 	"log"
@@ -56,6 +55,7 @@ type Tour interface {
 var tours = []Tour{
 	&PGA{},
 	&Euro{},
+	&Sunshine{},
 }
 
 var tmpl *template.Template
@@ -160,7 +160,22 @@ func parseTemplate() {
 	<div style="display: flex; flex-flow: row wrap">
 	{{range .Leaderboards}}{{template "leaderboard" .}}{{end}}
 	</div>
+	<p>Click on any country code to highlight all players from that country.</p>
 	<p><a href="/?format=json">Get this data as JSON.</a></p>
+
+	<script>
+		(function(){
+			const cells = document.querySelectorAll('td:nth-of-type(4)') // country code
+			cells.forEach(el => {
+				el.addEventListener('click', e => {					
+					cells.forEach(e => e.parentElement.style.backgroundColor = '') // reset all
+					cells.forEach(e => {
+						if (e.textContent === e.target.textContent) e.parentElement.style.backgroundColor = 'yellow' // highlight all from same country
+					})	
+				})
+			})
+		})()
+	</script>
 </body>
 </html>
 `)
@@ -274,6 +289,6 @@ func main() {
 	parseTemplate()
 	http.Handle("/", Handler(index))
 	addr := getListenAddr()
-	fmt.Println("Listening on", addr)
+	log.Printf("Listening on %s", addr)
 	log.Fatal(http.ListenAndServe(addr, nil))
 }
