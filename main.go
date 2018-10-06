@@ -167,10 +167,10 @@ func parseTemplate() {
 		(function(){
 			const cells = document.querySelectorAll('td:nth-of-type(4)') // country code
 			cells.forEach(el => {
-				el.addEventListener('click', e => {					
+				el.addEventListener('click', event => {					
 					cells.forEach(e => e.parentElement.style.backgroundColor = '') // reset all
 					cells.forEach(e => {
-						if (e.textContent === e.target.textContent) e.parentElement.style.backgroundColor = 'yellow' // highlight all from same country
+						if (e.textContent === event.target.textContent) e.parentElement.style.backgroundColor = 'yellow' // highlight all from same country
 					})	
 				})
 			})
