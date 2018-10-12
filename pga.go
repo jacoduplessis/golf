@@ -19,6 +19,10 @@ func (pga *PGA) String() string {
 	return "PGA Tour"
 }
 
+func (pga *PGA) Twitter() string {
+	return "pgatour"
+}
+
 func (pga *PGA) TID() string {
 	return pga.tid
 }

@@ -116,6 +116,10 @@ func (ss *Sunshine) String() string {
 	return "Sunshine Tour"
 }
 
+func (ss *Sunshine) Twitter() string {
+	return "sunshinetour"
+}
+
 type SunshineLeaderboard struct {
 	Name          string `json:"short_name"`
 	CourseName    string `json:"course_name"`

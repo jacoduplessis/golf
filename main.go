@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"io"
 	"log"
@@ -50,6 +51,7 @@ type Tour interface {
 	SetLastUpdated(time.Time)
 	TID() string
 	UpdateTID() error
+	Twitter() string
 }
 
 var tours = []Tour{
@@ -61,6 +63,8 @@ var tours = []Tour{
 var tmpl *template.Template
 
 var client = http.Client{Timeout: time.Second * 10}
+
+var newsTemplate *template.Template
 
 type Handler func(w http.ResponseWriter, r *http.Request) *AppError
 
@@ -179,6 +183,12 @@ func parseTemplate() {
 </body>
 </html>
 `)
+
+	// language=HTML
+	newsTemplate = template.Must(template.New("").Parse(`
+	<!DOCTYPE html>
+	<html></html>
+	`))
 }
 
 func updateTournaments() {
@@ -257,6 +267,44 @@ func index(w http.ResponseWriter, r *http.Request) *AppError {
 	}
 	return renderTemplate(w, &ctx)
 
+}
+
+type NewsFeed struct {
+	TourName string
+	Items    []struct {
+		Title   string
+		Content string
+	}
+}
+
+func news(w http.ResponseWriter, r *http.Request) *AppError {
+
+	results := make(chan *NewsFeed, len(tours))
+
+	for _, tour := range tours {
+
+		go func(t Tour) {
+			resp, err := client.Get(fmt.Sprintf("http://www.twitrss.me/twitter_user_to_rss/?user=%s", tour.Twitter()))
+			if err != nil {
+				results <- nil
+				return
+			}
+			defer resp.Body.Close()
+
+			// parse response into NewsFeed
+			results <- &NewsFeed{}
+		}(tour)
+
+	}
+
+	var feeds []NewsFeed
+	for i := 0; i < len(tours); i++ {
+		feed := <-results
+		feeds = append(feeds, feed)
+	}
+
+	newsTemplate.ExecuteTemplate(w, "", feeds)
+	return nil
 }
 
 func intervalUpdate() {

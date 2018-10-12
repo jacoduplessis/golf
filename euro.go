@@ -146,6 +146,10 @@ func (euro *Euro) String() string {
 	return "European Tour"
 }
 
+func (euro *Euro) Twitter() string {
+	return "europeantour"
+}
+
 type EuroLeaderboard struct {
 	LeaderboardCourseInfoData []struct {
 		CityName    string // "Southampton, New York",
