@@ -187,15 +187,14 @@ func parseTemplate() {
 
 	// language=HTML
 	newsTemplate = template.Must(template.New("newsfeed").Parse(`
-	
 
 		<h2>{{ .TourName }}</h2>
 
 		{{range .Tweets}}
 			
-			<div>
-				<p>{{ .UserName }} (@{{ .UserHandle}})</p>
-				<p class="timestamp">{{ .Timestamp }}</p>
+			<div class="tweet">
+				<p><strong>{{ .UserName }} (@{{ .UserHandle}})</strong> &middot; <span class="timestamp">{{ .Timestamp }}</span></p>
+				
 				<p>{{ .Content }}</p>
 				{{ if .ImageURL }}
 				<img src="{{ .ImageURL }}">
@@ -216,9 +215,18 @@ func parseTemplate() {
 			img {
 				max-width: 100%;
 			}
+
+			.tweet {
+				margin-top: 1rem;
+				border: 2px solid #ccc;
+				padding: 1rem;
+				background-color: #fff;
+			}
 		</style>
 	</head>
-	<body style="max-width: 650px;margin: 0 auto">		
+	<body style="max-width: 650px;margin: 0 auto; background-color: #eee">		
+		
+		<h1 style="text-align: center; margin-bottom: 3rem">Golf News</h1>
 		{{ range . }}{{template "newsfeed" . }}{{end}}
 		
 		<p><a href="/">Home</a></p>
