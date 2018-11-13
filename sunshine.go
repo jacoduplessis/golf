@@ -117,7 +117,7 @@ func (ss *Sunshine) String() string {
 }
 
 func (ss *Sunshine) Twitter() string {
-	return "sunshinetour"
+	return "Sunshine_Tour"
 }
 
 type SunshineLeaderboard struct {

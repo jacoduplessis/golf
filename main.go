@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/jacoduplessis/twitterparse"
 	"html/template"
 	"io"
 	"log"
@@ -166,7 +167,7 @@ func parseTemplate() {
 	</div>
 	<p>Click on any country code to highlight all players from that country.</p>
 	<p><a href="/?format=json">Get this data as JSON.</a></p>
-
+	<p>View <a href="/news">news</a>.</p>
 	<script>
 		(function(){
 			const cells = document.querySelectorAll('td:nth-of-type(4)') // country code
@@ -185,10 +186,50 @@ func parseTemplate() {
 `)
 
 	// language=HTML
-	newsTemplate = template.Must(template.New("").Parse(`
-	<!DOCTYPE html>
-	<html></html>
+	newsTemplate = template.Must(template.New("newsfeed").Parse(`
+	
+
+		<h2>{{ .TourName }}</h2>
+
+		{{range .Tweets}}
+			
+			<div>
+				<p>{{ .UserName }} (@{{ .UserHandle}})</p>
+				<p class="timestamp">{{ .Timestamp }}</p>
+				<p>{{ .Content }}</p>
+				{{ if .ImageURL }}
+				<img src="{{ .ImageURL }}">
+				{{end}}
+			</div>
+
+		{{end}}
 	`))
+
+	// language=HTML format=true
+	newsTemplate.New("").Parse(`
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>Golf News</title>
+		<style>
+			img {
+				max-width: 100%;
+			}
+		</style>
+	</head>
+	<body style="max-width: 650px;margin: 0 auto">		
+		{{ range . }}{{template "newsfeed" . }}{{end}}
+		
+		<p><a href="/">Home</a></p>
+		<script>
+			document.querySelectorAll(".timestamp").forEach(node => {
+			  node.textContent = (new Date(parseInt(node.textContent)*1000)).toUTCString()
+			})
+		</script>
+	</body>
+</html>
+`)
 }
 
 func updateTournaments() {
@@ -269,36 +310,30 @@ func index(w http.ResponseWriter, r *http.Request) *AppError {
 
 }
 
-type NewsFeed struct {
+type TwitterFeed struct {
 	TourName string
-	Items    []struct {
-		Title   string
-		Content string
-	}
+	Tweets   []twitterparse.Tweet
 }
 
 func news(w http.ResponseWriter, r *http.Request) *AppError {
 
-	results := make(chan *NewsFeed, len(tours))
+	results := make(chan TwitterFeed, len(tours))
 
 	for _, tour := range tours {
 
 		go func(t Tour) {
-			resp, err := client.Get(fmt.Sprintf("http://www.twitrss.me/twitter_user_to_rss/?user=%s", tour.Twitter()))
+			tweets, err := twitterparse.FetchUserWithClientAndParse(client, t.Twitter())
 			if err != nil {
-				results <- nil
-				return
+				log.Printf("error fetching tweets for %s %s", t, err)
 			}
-			defer resp.Body.Close()
-
-			// parse response into NewsFeed
-			results <- &NewsFeed{}
+			results <- TwitterFeed{TourName: fmt.Sprint(t), Tweets: tweets}
 		}(tour)
 
 	}
 
-	var feeds []NewsFeed
+	var feeds []TwitterFeed
 	for i := 0; i < len(tours); i++ {
+
 		feed := <-results
 		feeds = append(feeds, feed)
 	}
@@ -336,6 +371,7 @@ func main() {
 
 	parseTemplate()
 	http.Handle("/", Handler(index))
+	http.Handle("/news", Handler(news))
 	addr := getListenAddr()
 	log.Printf("Listening on %s", addr)
 	log.Fatal(http.ListenAndServe(addr, nil))
