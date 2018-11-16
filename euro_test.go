@@ -1,25 +1,23 @@
 package main
 
 import (
-	"fmt"
-	"github.com/andybalholm/cascadia"
-	"golang.org/x/net/html"
+	"bytes"
 	"os"
 	"testing"
 )
 
-func TestIDExtraction(t *testing.T) {
+func TestEuro(t *testing.T) {
 
-	var tid string
-	markup, _ := os.Open("euro_home.html")
-	defer markup.Close()
-	root, _ := html.Parse(markup)
-	s := cascadia.MustCompile("#ETContainer_thisWeek>div")
-	d := s.MatchFirst(root)
-	for _, a := range d.Attr {
-		if a.Key == "id" {
-			tid = a.Val
-		}
+	parseTemplate()
+	euro := &Euro{}
+	b, _ := os.Open("test/euro.json")
+	out := &bytes.Buffer{}
+	lb, err := euro.Parse(b)
+	if err != nil {
+		t.Fail()
 	}
-	fmt.Println(tid)
+	err = tmpl.ExecuteTemplate(out, "leaderboard", lb)
+	if err != nil {
+		t.Fail()
+	}
 }
