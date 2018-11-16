@@ -3,13 +3,14 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
+	"flag"
 	"github.com/jacoduplessis/twitterparse"
 	"html/template"
 	"io"
 	"log"
 	"net/http"
 	"os"
+	"sort"
 	"time"
 )
 
@@ -152,7 +153,7 @@ func parseTemplate() {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-  <title>Golf</title>
+  <title>Golf Leaderboards</title>
   <style>
 	html { font-family: monospace }
 	table { border-collapse: collapse; border: 1px solid }
@@ -186,22 +187,15 @@ func parseTemplate() {
 `)
 
 	// language=HTML
-	newsTemplate = template.Must(template.New("newsfeed").Parse(`
-
-		<h2>{{ .TourName }}</h2>
-
-		{{range .Tweets}}
-			
+	newsTemplate = template.Must(template.New("item").Parse(`
 			<div class="tweet">
-				<p><strong>{{ .UserName }} (@{{ .UserHandle}})</strong> &middot; <span class="timestamp">{{ .Timestamp }}</span></p>
+				<p><strong>{{ .UserName }} (@{{ .UserHandle}})</strong> &middot; <time datetime="{{ .ISOTime }}">{{ .RelativeTime }}</time></p>
 				
 				<p>{{ .Content }}</p>
 				{{ if .ImageURL }}
 				<img src="{{ .ImageURL }}">
 				{{end}}
 			</div>
-
-		{{end}}
 	`))
 
 	// language=HTML format=true
@@ -226,15 +220,15 @@ func parseTemplate() {
 	</head>
 	<body style="max-width: 650px;margin: 0 auto; background-color: #eee">		
 		
-		<h1 style="text-align: center; margin-bottom: 3rem">Golf News</h1>
-		{{ range . }}{{template "newsfeed" . }}{{end}}
+		<div style="text-align: center; margin-bottom: 3rem">
+			<h1>Golf News</h1>
+			<p>from Twitter</p>
+		</div>
+		
+		
+		{{ range . }}{{template "item" . }}{{end}}
 		
 		<p><a href="/">Home</a></p>
-		<script>
-			document.querySelectorAll(".timestamp").forEach(node => {
-			  node.textContent = (new Date(parseInt(node.textContent)*1000)).toUTCString()
-			})
-		</script>
 	</body>
 </html>
 `)
@@ -318,14 +312,10 @@ func index(w http.ResponseWriter, r *http.Request) *AppError {
 
 }
 
-type TwitterFeed struct {
-	TourName string
-	Tweets   []twitterparse.Tweet
-}
-
 func news(w http.ResponseWriter, r *http.Request) *AppError {
 
-	results := make(chan TwitterFeed, len(tours))
+	results := make(chan []*twitterparse.Tweet, len(tours))
+	var tweets []*twitterparse.Tweet
 
 	for _, tour := range tours {
 
@@ -334,19 +324,20 @@ func news(w http.ResponseWriter, r *http.Request) *AppError {
 			if err != nil {
 				log.Printf("error fetching tweets for %s %s", t, err)
 			}
-			results <- TwitterFeed{TourName: fmt.Sprint(t), Tweets: tweets}
+			results <- tweets
 		}(tour)
 
 	}
 
-	var feeds []TwitterFeed
-	for i := 0; i < len(tours); i++ {
-
-		feed := <-results
-		feeds = append(feeds, feed)
+	for range tours {
+		tweets = append(tweets, <-results...)
 	}
 
-	newsTemplate.ExecuteTemplate(w, "", feeds)
+	sort.Slice(tweets, func(i, j int) bool {
+		return tweets[i].Timestamp > tweets[j].Timestamp
+	})
+
+	newsTemplate.ExecuteTemplate(w, "", tweets)
 	return nil
 }
 
@@ -370,17 +361,28 @@ func intervalUpdate() {
 
 func main() {
 
+	noInitial := flag.Bool("no_initial", false, "No initial fetching of data")
+	noInterval := flag.Bool("no_interval", false, "No periodic updates of data")
+
+	flag.Parse()
+
 	// initial data
-	updateTournaments()
-	updateLeaderboards()
+	if !*noInitial {
+		log.Println("fetching initial data")
+		updateTournaments()
+		updateLeaderboards()
+	}
 
 	// setup tickers
-	intervalUpdate()
+	if !*noInterval {
+		log.Println("creating tickers")
+		intervalUpdate()
+	}
 
 	parseTemplate()
 	http.Handle("/", Handler(index))
 	http.Handle("/news", Handler(news))
 	addr := getListenAddr()
-	log.Printf("Listening on %s", addr)
+	log.Printf("listening on %s", addr)
 	log.Fatal(http.ListenAndServe(addr, nil))
 }
