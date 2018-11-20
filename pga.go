@@ -106,6 +106,10 @@ func (pga *PGA) SetLastUpdated(t time.Time) {
 	pga.lastUpdated = t
 }
 
+func (pga *PGA) TwitterID() string {
+	return "14063426"
+}
+
 type PGALeaderboard struct {
 	LastUpdated string `json:"last_updated"`
 	Leaderboard struct {

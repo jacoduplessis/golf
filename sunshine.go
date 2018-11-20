@@ -120,6 +120,10 @@ func (ss *Sunshine) Twitter() string {
 	return "Sunshine_Tour"
 }
 
+func (ss *Sunshine) TwitterID() string {
+	return "126255586"
+}
+
 type SunshineLeaderboard struct {
 	Name          string `json:"short_name"`
 	CourseName    string `json:"course_name"`

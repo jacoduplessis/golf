@@ -54,6 +54,7 @@ type Tour interface {
 	TID() string
 	UpdateTID() error
 	Twitter() string
+	TwitterID() string
 }
 
 var tours = []Tour{
@@ -65,6 +66,7 @@ var tours = []Tour{
 var tmpl *template.Template
 
 var client = http.Client{Timeout: time.Second * 10}
+var twitterClient = &twitterparse.TwitterClient{}
 
 var newsTemplate *template.Template
 
@@ -187,14 +189,24 @@ func parseTemplate() {
 `)
 
 	// language=HTML
-	newsTemplate = template.Must(template.New("item").Parse(`
+	newsTemplate = template.Must(template.New("item").
+		Funcs(map[string]interface{}{
+			"URLize": URLize,
+		}).
+		Parse(`
 			<div class="tweet">
 				<p><strong>{{ .UserName }} (@{{ .UserHandle}})</strong> &middot; <time datetime="{{ .ISOTime }}">{{ .RelativeTime }}</time></p>
 				
-				<p>{{ .Content }}</p>
-				{{ if .ImageURL }}
+				<p>{{ URLize .Content }}</p>
+				{{ if (and .ImageURL (not .Video))}}
 				<img src="{{ .ImageURL }}">
 				{{end}}
+
+				{{ if .Video }}
+				<video controls poster="{{ .VideoThumbnail }}">
+					<source src="{{ .VideoSource }}" type="video/mp4">
+				</video>
+				{{ end }}
 			</div>
 	`))
 
@@ -204,9 +216,10 @@ func parseTemplate() {
 <html>
 	<head>
 		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 		<title>Golf News</title>
 		<style>
-			img {
+			img,video {
 				max-width: 100%;
 			}
 
@@ -223,12 +236,13 @@ func parseTemplate() {
 		<div style="text-align: center; margin-bottom: 3rem">
 			<h1>Golf News</h1>
 			<p>from Twitter</p>
+			<p><a href="/">leaderboards</a></p>
 		</div>
 		
 		
 		{{ range . }}{{template "item" . }}{{end}}
 		
-		<p><a href="/">Home</a></p>
+		<p><a href="/">leaderboards</a></p>
 	</body>
 </html>
 `)
@@ -320,7 +334,13 @@ func news(w http.ResponseWriter, r *http.Request) *AppError {
 	for _, tour := range tours {
 
 		go func(t Tour) {
-			tweets, err := twitterparse.FetchUserWithClientAndParse(client, t.Twitter())
+			twitterID := t.TwitterID()
+			if twitterID == "" {
+				results <- nil
+				return
+			}
+
+			tweets, err := twitterClient.GetProfileTweets(twitterID)
 			if err != nil {
 				log.Printf("error fetching tweets for %s %s", t, err)
 			}
@@ -357,6 +377,21 @@ func intervalUpdate() {
 		}
 	}()
 
+	tickerTwitterClient := time.NewTicker(3 * time.Hour)
+	go func() {
+		for range tickerTwitterClient.C {
+			setupTwitterClient()
+		}
+	}()
+
+}
+
+func setupTwitterClient() {
+	tc, err := twitterparse.NewClient()
+	if err != nil {
+		log.Fatalf("Error setting up twitter client: %v\n", err)
+	}
+	twitterClient = tc
 }
 
 func main() {
@@ -371,6 +406,7 @@ func main() {
 		log.Println("fetching initial data")
 		updateTournaments()
 		updateLeaderboards()
+		setupTwitterClient()
 	}
 
 	// setup tickers
