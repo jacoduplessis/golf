@@ -19,6 +19,10 @@ func (pga *PGA) String() string {
 	return "PGA Tour"
 }
 
+func (pga *PGA) Twitter() string {
+	return "pgatour"
+}
+
 func (pga *PGA) TID() string {
 	return pga.tid
 }
@@ -100,6 +104,10 @@ func (pga *PGA) LastUpdated() time.Time {
 
 func (pga *PGA) SetLastUpdated(t time.Time) {
 	pga.lastUpdated = t
+}
+
+func (pga *PGA) TwitterID() string {
+	return "14063426"
 }
 
 type PGALeaderboard struct {
