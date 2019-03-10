@@ -7,8 +7,13 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 )
+
+// https://sunshinetour.com/?page_id=25983&tourn=LMPC&season=218S&report=http://sunshinetour.info/tic/tmscores.cgi?tourn=LMPC~season=218S
+
+// https://sunshinetour.com/api/sst/cache/sst/218S/218S-LMPC-scores-latest.json?randomadd=1552215230156
 
 type Sunshine struct {
 	lastUpdated time.Time
@@ -29,7 +34,10 @@ func (ss *Sunshine) UpdateTID() error {
 	defer res.Body.Close()
 
 	var d struct {
-		Code string `json:"code"`
+		Code     string `json:"code"`
+		TMParams struct {
+			SeasonCode string `json:"season_code"`
+		} `json:"tm_params"`
 	}
 
 	if err := json.NewDecoder(res.Body).Decode(&d); err != nil {
@@ -39,13 +47,20 @@ func (ss *Sunshine) UpdateTID() error {
 	if d.Code == "" {
 		return errors.New("Sunshine TID is empty")
 	}
-	ss.tid = d.Code
+	ss.tid = d.Code + "," + d.TMParams.SeasonCode
 	return nil
 }
 
 func (ss *Sunshine) Request() (*http.Request, error) {
 
-	u := fmt.Sprintf("http://sunshinetour.com/api/sst/cache/sst/218S/218S-%s-result-result-PF.json", ss.TID())
+	args := strings.Split(ss.TID(), ",")
+	if len(args) < 2 {
+		return nil, fmt.Errorf("[ss] Invalid TID %s", ss.TID())
+
+	}
+	tid, season := args[0], args[1]
+
+	u := fmt.Sprintf("https://sunshinetour.com/api/sst/cache/sst/%s/%s-%s-scores-latest.json", season, season, tid)
 	return http.NewRequest("GET", u, nil)
 }
 
@@ -77,6 +92,8 @@ func (ss *Sunshine) Parse(r io.Reader) (*Leaderboard, error) {
 
 		strokes, _ := strconv.Atoi(p.Score)
 
+		hole, _ := strconv.Atoi(p.Hole)
+
 		players = append(players, &Player{
 			Name:            p.Name,
 			Country:         p.Country,
@@ -84,6 +101,8 @@ func (ss *Sunshine) Parse(r io.Reader) (*Leaderboard, error) {
 			Total:           total,
 			Rounds:          rounds,
 			TotalStrokes:    strokes,
+			Hole:            hole,
+			After:           hole,
 		})
 	}
 
@@ -137,12 +156,13 @@ type SunshineLeaderboard struct {
 			Par      string `json:"vspar"`
 			Name     string `json:"name"`
 			Country  string `json:"nationality"`
+			Hole     string `json:"holes"`
 			R1       string `json:"score_R1"`
 			R2       string `json:"score_R2"`
 			R3       string `json:"score_R3"`
 			R4       string `json:"score_R4"`
 			R5       string `json:"score_R5"`
 			R6       string `json:"score_R6"`
-		} `json:"result_entry"`
-	}
+		} `json:"scores_entry"`
+	} `json:"scores"`
 }
