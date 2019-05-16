@@ -27,6 +27,10 @@ func (pga *PGA) TID() string {
 	return pga.tid
 }
 
+func (pga *PGA) Index() int {
+	return 1
+}
+
 func (pga *PGA) UpdateTID() error {
 	var current struct {
 		TID string `json:"tid"`
@@ -81,6 +85,7 @@ func (pga *PGA) Parse(r io.Reader) (*Leaderboard, error) {
 
 	return &Leaderboard{
 		Tour:       pga.String(),
+		TourIndex:  pga.Index(),
 		Tournament: d.Leaderboard.TournamentName,
 		Course:     d.Leaderboard.Courses[0].CourseName,
 		Date:       fmt.Sprintf("%s — %s", d.Leaderboard.StartDate, d.Leaderboard.EndDate),

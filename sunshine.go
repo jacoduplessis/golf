@@ -25,6 +25,10 @@ func (ss *Sunshine) TID() string {
 	return ss.tid
 }
 
+func (ss *Sunshine) Index() int {
+	return 3
+}
+
 func (ss *Sunshine) UpdateTID() error {
 
 	res, err := client.Get("https://sunshinetour.com/api/sst/cache/sst/tmticx")
@@ -108,6 +112,7 @@ func (ss *Sunshine) Parse(r io.Reader) (*Leaderboard, error) {
 
 	return &Leaderboard{
 		Tour:       ss.String(),
+		TourIndex:  ss.Index(),
 		Tournament: d.Name,
 		Course:     d.CourseName,
 		Location:   fmt.Sprintf("%s, %s", d.CourseCity, d.CourseCountry),

@@ -35,6 +35,7 @@ type Player struct {
 
 type Leaderboard struct {
 	Tour       string
+	TourIndex  int
 	Tournament string
 	Round      int
 	Location   string
@@ -55,6 +56,7 @@ type Tour interface {
 	UpdateTID() error
 	Twitter() string
 	TwitterID() string
+	Index() int
 }
 
 var tours = []Tour{
@@ -318,6 +320,10 @@ func index(w http.ResponseWriter, r *http.Request) *AppError {
 	for _, tour := range tours {
 		ctx.Leaderboards = append(ctx.Leaderboards, tour.Leaderboard())
 	}
+
+	sort.Slice(ctx.Leaderboards, func(i, j int) bool {
+		return ctx.Leaderboards[i].TourIndex < ctx.Leaderboards[j].TourIndex
+	})
 
 	if r.URL.Query().Get("format") == "json" {
 		return renderJSON(w, &ctx)

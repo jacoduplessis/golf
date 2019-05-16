@@ -30,6 +30,10 @@ func (euro *Euro) TID() string {
 	return euro.tid
 }
 
+func (euro *Euro) Index() int {
+	return 2
+}
+
 func (euro *Euro) UpdateTID() error {
 
 	res, err := client.Get("http://www.europeantour.com")
@@ -119,6 +123,7 @@ func (euro *Euro) Parse(r io.Reader) (*Leaderboard, error) {
 	meta := d.LeaderboardCourseInfoData[0]
 	return &Leaderboard{
 		Tour:       euro.String(),
+		TourIndex:  euro.Index(),
 		Tournament: tournamentName,
 		Course:     meta.CourseName,
 		Location:   fmt.Sprintf("%s, %s", meta.CityName, meta.CountryName),
