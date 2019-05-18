@@ -109,7 +109,7 @@ func (euro *Euro) Parse(r io.Reader) (*Leaderboard, error) {
 		}
 
 		players = append(players, &Player{
-			Name:            p.Name,
+			Name:            FixEuroName(p.Name),
 			Country:         p.Countrycode,
 			Today:           today,
 			CurrentPosition: p.Position,

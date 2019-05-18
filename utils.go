@@ -25,3 +25,30 @@ func URLize(s string) template.HTML {
 
 	return template.HTML(strings.Join(processed, " "))
 }
+
+func FixEuroName(s string) string {
+
+	parts := strings.Split(s, ",")
+
+	// unexpected format, just return the original string
+	if len(parts) != 2 {
+		return s
+	}
+
+	surname, name := parts[0], parts[1]
+
+	var surnameParts []string
+
+	for _, n := range strings.Split(surname, " ") {
+
+		if n == "I" || n == "II" || n == "III" || n == "IV" {
+			surnameParts = append(surnameParts, n)
+			continue
+		}
+
+		fixed := strings.TrimSpace(string(n[0]) + strings.ToLower(n[1:]))
+		surnameParts = append(surnameParts, fixed)
+	}
+
+	return strings.TrimSpace(name) + " " + strings.Join(surnameParts, " ")
+}
