@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"sort"
+	"sync"
 	"time"
 )
 
@@ -71,6 +72,16 @@ var client = http.Client{Timeout: time.Second * 10}
 var twitterClient = &twitterparse.TwitterClient{}
 
 var newsTemplate *template.Template
+var videoTemplate *template.Template
+var videos []*Video
+
+type VideosIndex struct {
+	Videos []*Video
+	lock   sync.RWMutex
+}
+
+// var vidIndex VideosIndex
+var vidIndex = &VideosIndex{}
 
 type Handler func(w http.ResponseWriter, r *http.Request) *AppError
 
@@ -172,7 +183,7 @@ func parseTemplate() {
 	</div>
 	<p>Click on any country code to highlight all players from that country.</p>
 	<p><a href="/?format=json">Get this data as JSON.</a></p>
-	<p>View <a href="/news">news</a>.</p>
+	<p>View <a href="/news">news</a> or <a href="/videos">videos</a>.</p>
 	<script>
 		(function(){
 			const cells = document.querySelectorAll('td:nth-of-type(4)') // country code
@@ -248,6 +259,56 @@ func parseTemplate() {
 	</body>
 </html>
 `)
+
+	// language=HTML
+	videoTemplate = template.Must(template.New("item").Parse(`
+			<div class="video">
+				<h3>{{ .Title }}</h3>
+				<p>{{ .Description }}</p>
+
+				{{ if .SRC }}
+				<video controls poster="{{ .ThumbnailSRC }}">
+					<source src="{{ .SRC }}" type="video/mp4">
+				</video>
+				{{ end }}
+			</div>
+`))
+
+	// language=HTML
+	videoTemplate.New("").Parse(`
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+		<title>Golf Videos</title>
+		<style>
+			img,video {
+				max-width: 100%;
+			}
+
+			.video {
+				margin-top: 1rem;
+				border: 2px solid #ccc;
+				padding: 1rem;
+				background-color: #fff;
+			}
+		</style>
+	</head>
+	<body style="max-width: 900px;margin: 0 auto; background-color: #eee">		
+		
+		<div style="text-align: center; margin-bottom: 3rem">
+			<h1>Golf Videos</h1>
+			<p><a href="/">leaderboards</a></p>
+		</div>
+
+		{{ range . }}{{template "item" . }}{{end}}
+
+		<p><a href="/">leaderboards</a></p>
+	</body>
+</html>
+`)
+
 }
 
 func updateTournaments() {
@@ -318,7 +379,9 @@ func index(w http.ResponseWriter, r *http.Request) *AppError {
 	ctx := &TemplateContext{}
 
 	for _, tour := range tours {
-		ctx.Leaderboards = append(ctx.Leaderboards, tour.Leaderboard())
+		if len(tour.Leaderboard().Players) > 0 {
+			ctx.Leaderboards = append(ctx.Leaderboards, tour.Leaderboard())
+		}
 	}
 
 	sort.Slice(ctx.Leaderboards, func(i, j int) bool {
@@ -330,6 +393,13 @@ func index(w http.ResponseWriter, r *http.Request) *AppError {
 	}
 	return renderTemplate(w, &ctx)
 
+}
+
+func updateVideos() {
+	vidIndex.lock.Lock()
+	videos = getVideoListing()
+	vidIndex.Videos = videos
+	vidIndex.lock.Unlock()
 }
 
 func news(w http.ResponseWriter, r *http.Request) *AppError {
@@ -367,6 +437,21 @@ func news(w http.ResponseWriter, r *http.Request) *AppError {
 	return nil
 }
 
+func videosHandler(w http.ResponseWriter, r *http.Request) *AppError {
+
+	vidIndex.lock.RLock()
+	err := videoTemplate.ExecuteTemplate(w, "", vidIndex.Videos)
+	vidIndex.lock.RUnlock()
+	if err != nil {
+		return &AppError{
+			Message: "Error building page",
+			Code:    500,
+			Error:   err,
+		}
+	}
+	return nil
+}
+
 func intervalUpdate() {
 
 	tickerLeaderboards := time.NewTicker(1 * time.Minute)
@@ -390,6 +475,13 @@ func intervalUpdate() {
 		}
 	}()
 
+	tickerVideos := time.NewTicker(1 * time.Hour)
+	go func() {
+		for range tickerVideos.C {
+			updateVideos()
+		}
+	}()
+
 }
 
 func setupTwitterClient() {
@@ -402,6 +494,8 @@ func setupTwitterClient() {
 
 func main() {
 
+	parseTemplate()
+
 	noInitial := flag.Bool("no_initial", false, "No initial fetching of data")
 	noInterval := flag.Bool("no_interval", false, "No periodic updates of data")
 
@@ -410,6 +504,7 @@ func main() {
 	// initial data
 	if !*noInitial {
 		log.Println("fetching initial data")
+		updateVideos()
 		updateTournaments()
 		updateLeaderboards()
 		setupTwitterClient()
@@ -421,9 +516,9 @@ func main() {
 		intervalUpdate()
 	}
 
-	parseTemplate()
 	http.Handle("/", Handler(index))
 	http.Handle("/news", Handler(news))
+	http.Handle("/videos", Handler(videosHandler))
 	addr := getListenAddr()
 	log.Printf("listening on %s", addr)
 	log.Fatal(http.ListenAndServe(addr, nil))
