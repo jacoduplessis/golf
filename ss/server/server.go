@@ -7,7 +7,11 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/jacoduplessis/golf/ss"
 	"net/http"
+	"os"
+	"time"
 )
+
+var cacheControl = "public, max-age=86400" // one day
 
 func renderTemplateWithHeaders(w http.ResponseWriter, name string, data interface{}, headers map[string]string) error {
 	tmpl, ok := tmpl[name]
@@ -34,7 +38,8 @@ func renderTemplateWithHeaders(w http.ResponseWriter, name string, data interfac
 
 func renderTemplate(w http.ResponseWriter, name string, data interface{}) error {
 	headers := map[string]string{
-		"Content-Type": "text/html; charset=utf-8",
+		"Content-Type":  "text/html; charset=utf-8",
+		"Cache-Control": cacheControl,
 	}
 	return renderTemplateWithHeaders(w, name, data, headers)
 }
@@ -58,16 +63,16 @@ func (h APIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", "")
+	w.Header().Set("Cache-Control", cacheControl)
 	_ = json.NewEncoder(w).Encode(matches)
 
 }
 
-type IndexHandler struct {
+type ResultsHandler struct {
 	client http.Client
 }
 
-func (h IndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h ResultsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	matches, err := ss.FetchMatches(h.client)
 	if err != nil {
@@ -75,12 +80,7 @@ func (h IndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	headers := map[string]string{
-		"Content-Type":  "text/html",
-		"Cache-Control": "",
-	}
-
-	_ = renderTemplateWithHeaders(w, "index", matches, headers)
+	_ = renderTemplate(w, "index", matches)
 
 }
 
@@ -130,16 +130,35 @@ func (h ScorecardHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func GetMux(c http.Client) *http.ServeMux {
+func getListenAddr() string {
+	if port := os.Getenv("PORT"); port != "" {
+		return ":" + port
+	}
+	if addr := os.Getenv("LISTEN_ADDR"); addr != "" {
+		return addr
+	}
+	return "127.0.0.1:8000"
+}
 
+func GetHandler(c http.Client) http.Handler {
 	r := mux.NewRouter()
 
-	r.Handle("/", IndexHandler{client: c})
+	r.Handle("/", ResultsHandler{client: c})
 	r.Handle("/api", APIHandler{client: c})
 	r.Handle("/tournaments/{matchId}", TournamentHandler{client: c})
 	r.Handle("/scorecards/{matchId}/{scorecardId}", ScorecardHandler{client: c})
 
-	m := http.NewServeMux()
-	m.Handle("/", r)
-	return m
+	return r
+}
+
+func GetServer(c http.Client) *http.Server {
+
+	h := GetHandler(c)
+
+	return &http.Server{
+		Handler:      h,
+		Addr:         getListenAddr(),
+		WriteTimeout: 15 * time.Second,
+		ReadTimeout:  15 * time.Second,
+	}
 }

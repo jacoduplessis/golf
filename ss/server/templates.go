@@ -37,7 +37,7 @@ func init() {
 					<td>{{ .Name }}</td>
 					<td>{{ .Score }}</td>
 					<td>{{ .Today }}</td>
-					<td>{{ if and .MatchId .ScorecardId }}<a href="/scorecards/{{ .MatchId }}/{{ .ScorecardId }}">{{ .StrRounds }}</a>{{ else }}{{ .StrRounds }}{{ end }}</td>
+					<td>{{ if and .MatchId .ScorecardId }}<a href="/results/scorecards/{{ .MatchId }}/{{ .ScorecardId }}">{{ .StrRounds }}</a>{{ else }}{{ .StrRounds }}{{ end }}</td>
 				</tr>
 			{{ end }}
 			
@@ -45,7 +45,7 @@ func init() {
 				{{- /*gotype: github.com/jacoduplessis/golf/ss.Match*/ -}}	
 				<p>
 					<span>{{ .TourName }}</span><br>
-					<strong><a href="/tournaments/{{ .ID }}">{{ .Name }}</a></strong><br>
+					<strong><a href="/results/tournaments/{{ .ID }}">{{ .Name }}</a></strong><br>
 					<span>{{ .Location }}</span>
 				</p>
 				<table>

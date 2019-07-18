@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"flag"
+	"github.com/jacoduplessis/golf/ss/server"
 	"github.com/jacoduplessis/twitterparse"
 	"html/template"
 	"io"
@@ -376,7 +377,7 @@ type TemplateContext struct {
 }
 
 func index(w http.ResponseWriter, r *http.Request) *AppError {
-	ctx := &TemplateContext{}
+	ctx := TemplateContext{}
 
 	for _, tour := range tours {
 		if len(tour.Leaderboard().Players) > 0 {
@@ -389,9 +390,9 @@ func index(w http.ResponseWriter, r *http.Request) *AppError {
 	})
 
 	if r.URL.Query().Get("format") == "json" {
-		return renderJSON(w, &ctx)
+		return renderJSON(w, ctx)
 	}
-	return renderTemplate(w, &ctx)
+	return renderTemplate(w, ctx)
 
 }
 
@@ -516,10 +517,16 @@ func main() {
 		intervalUpdate()
 	}
 
-	http.Handle("/", Handler(index))
-	http.Handle("/news", Handler(news))
-	http.Handle("/videos", Handler(videosHandler))
+	mux := http.NewServeMux()
+
+	resultsHandler := server.GetHandler(client)
+
+	mux.Handle("/", Handler(index))
+	mux.Handle("/news", Handler(news))
+	mux.Handle("/videos", Handler(videosHandler))
+	mux.Handle("/results/", http.StripPrefix("/results", resultsHandler))
+
 	addr := getListenAddr()
 	log.Printf("listening on %s", addr)
-	log.Fatal(http.ListenAndServe(addr, nil))
+	log.Fatal(http.ListenAndServe(addr, mux))
 }
