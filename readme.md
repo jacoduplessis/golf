@@ -10,6 +10,16 @@ is fetched upon request.
 Please do not scrape the news page. Use [the library](https://github.com/jacoduplessis/twitterparse)
 instead.
 
+The HTML tables on the index page is well suited for use with Google Sheets:
+
+```
+=IMPORTHTML("https://golf.jacoduplessis.co.za/", "table", 1)
+```
+
+Some folks are using this for fantasy golf competitions. If you are interested in collaborating
+to build a fantasy golf platform, please get in touch.
+
+
 ## Installing
 
 ```
