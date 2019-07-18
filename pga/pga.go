@@ -1,9 +1,10 @@
-package main
+package pga
 
 import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/jacoduplessis/golf"
 	"io"
 	"net/http"
 	"time"
@@ -11,7 +12,7 @@ import (
 
 type PGA struct {
 	lastUpdated time.Time
-	leaderboard *Leaderboard
+	leaderboard *golf.Leaderboard
 	tid         string
 }
 
@@ -31,11 +32,11 @@ func (pga *PGA) Index() int {
 	return 1
 }
 
-func (pga *PGA) UpdateTID() error {
+func (pga *PGA) UpdateTID(c http.Client) error {
 	var current struct {
 		TID string `json:"tid"`
 	}
-	resp, err := client.Get("https://statdata.pgatour.com/r/current/message.json")
+	resp, err := c.Get("https://statdata.pgatour.com/r/current/message.json")
 	if err != nil {
 		return err
 	}
@@ -56,20 +57,20 @@ func (pga *PGA) Request() (*http.Request, error) {
 	return http.NewRequest("GET", u, nil)
 }
 
-func (pga *PGA) Parse(r io.Reader) (*Leaderboard, error) {
+func (pga *PGA) Parse(r io.Reader) (*golf.Leaderboard, error) {
 	var d PGALeaderboard
 	if err := json.NewDecoder(r).Decode(&d); err != nil {
 		return nil, err
 	}
 
-	var players []*Player
+	var players []*golf.Player
 
 	for _, p := range d.Leaderboard.Players {
 		var rounds []int
 		for _, r := range p.Rounds {
 			rounds = append(rounds, r.Strokes)
 		}
-		players = append(players, &Player{
+		players = append(players, &golf.Player{
 			Name:            p.PlayerBio.FirstName + " " + p.PlayerBio.LastName,
 			Country:         p.PlayerBio.Country,
 			CurrentPosition: p.CurrentPosition,
@@ -83,7 +84,7 @@ func (pga *PGA) Parse(r io.Reader) (*Leaderboard, error) {
 		})
 	}
 
-	return &Leaderboard{
+	return &golf.Leaderboard{
 		Tour:       pga.String(),
 		TourIndex:  pga.Index(),
 		Tournament: d.Leaderboard.TournamentName,
@@ -95,11 +96,11 @@ func (pga *PGA) Parse(r io.Reader) (*Leaderboard, error) {
 	}, nil
 }
 
-func (pga *PGA) SetLeaderboard(lb *Leaderboard) {
+func (pga *PGA) SetLeaderboard(lb *golf.Leaderboard) {
 	pga.leaderboard = lb
 }
 
-func (pga *PGA) Leaderboard() *Leaderboard {
+func (pga *PGA) Leaderboard() *golf.Leaderboard {
 	return pga.leaderboard
 }
 

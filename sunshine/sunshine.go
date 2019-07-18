@@ -1,9 +1,10 @@
-package main
+package sunshine
 
 import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/jacoduplessis/golf"
 	"io"
 	"net/http"
 	"strconv"
@@ -17,7 +18,7 @@ import (
 
 type Sunshine struct {
 	lastUpdated time.Time
-	leaderboard *Leaderboard
+	leaderboard *golf.Leaderboard
 	tid         string
 }
 
@@ -29,9 +30,9 @@ func (ss *Sunshine) Index() int {
 	return 3
 }
 
-func (ss *Sunshine) UpdateTID() error {
+func (ss *Sunshine) UpdateTID(c http.Client) error {
 
-	res, err := client.Get("https://sunshinetour.com/api/sst/cache/sst/tmticx")
+	res, err := c.Get("https://sunshinetour.com/api/sst/cache/sst/tmticx")
 	if err != nil {
 		return err
 	}
@@ -68,21 +69,21 @@ func (ss *Sunshine) Request() (*http.Request, error) {
 	return http.NewRequest("GET", u, nil)
 }
 
-func (ss *Sunshine) Parse(r io.Reader) (*Leaderboard, error) {
+func (ss *Sunshine) Parse(r io.Reader) (*golf.Leaderboard, error) {
 
 	var d SunshineLeaderboard
 	if err := json.NewDecoder(r).Decode(&d); err != nil {
 		return nil, err
 	}
 
-	var players []*Player
+	var players []*golf.Player
 
 	for _, p := range d.Result.Entry {
 
 		var rounds []int
 
 		for _, rs := range []string{p.R1, p.R2, p.R3, p.R4, p.R5, p.R6} {
-			rounds = appendRound(rounds, rs)
+			rounds = golf.AppendRound(rounds, rs)
 		}
 
 		var totalStrokes int
@@ -98,7 +99,7 @@ func (ss *Sunshine) Parse(r io.Reader) (*Leaderboard, error) {
 
 		hole, _ := strconv.Atoi(p.Hole)
 
-		players = append(players, &Player{
+		players = append(players, &golf.Player{
 			Name:            p.Name,
 			Country:         p.Country,
 			CurrentPosition: p.Position,
@@ -110,7 +111,7 @@ func (ss *Sunshine) Parse(r io.Reader) (*Leaderboard, error) {
 		})
 	}
 
-	return &Leaderboard{
+	return &golf.Leaderboard{
 		Tour:       ss.String(),
 		TourIndex:  ss.Index(),
 		Tournament: d.Name,
@@ -120,11 +121,11 @@ func (ss *Sunshine) Parse(r io.Reader) (*Leaderboard, error) {
 	}, nil
 }
 
-func (ss *Sunshine) SetLeaderboard(lb *Leaderboard) {
+func (ss *Sunshine) SetLeaderboard(lb *golf.Leaderboard) {
 	ss.leaderboard = lb
 }
 
-func (ss *Sunshine) Leaderboard() *Leaderboard {
+func (ss *Sunshine) Leaderboard() *golf.Leaderboard {
 	return ss.leaderboard
 }
 

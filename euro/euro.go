@@ -1,14 +1,16 @@
-package main
+package euro
 
 import (
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/andybalholm/cascadia"
+	"github.com/jacoduplessis/golf"
 	"golang.org/x/net/html"
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -20,7 +22,7 @@ import (
 
 type Euro struct {
 	lastUpdated time.Time
-	leaderboard *Leaderboard
+	leaderboard *golf.Leaderboard
 	tid         string
 }
 
@@ -34,9 +36,9 @@ func (euro *Euro) Index() int {
 	return 2
 }
 
-func (euro *Euro) UpdateTID() error {
+func (euro *Euro) UpdateTID(c http.Client) error {
 
-	res, err := client.Get("http://www.europeantour.com")
+	res, err := c.Get("http://www.europeantour.com")
 	if err != nil {
 		return err
 	}
@@ -66,25 +68,14 @@ func (euro *Euro) Request() (*http.Request, error) {
 	return http.NewRequest("GET", u, nil)
 }
 
-func appendRound(rounds []int, rs string) []int {
-	r, err := strconv.Atoi(rs)
-	if err != nil {
-		return rounds
-	}
-	if r > 40 {
-		rounds = append(rounds, r)
-	}
-	return rounds
-}
-
-func (euro *Euro) Parse(r io.Reader) (*Leaderboard, error) {
+func (euro *Euro) Parse(r io.Reader) (*golf.Leaderboard, error) {
 
 	var d EuroLeaderboard
 	if err := json.NewDecoder(r).Decode(&d); err != nil {
 		return nil, err
 	}
 
-	var players []*Player
+	var players []*golf.Player
 	var tournamentName string
 
 	for i, p := range d.LeaderboardData {
@@ -98,7 +89,7 @@ func (euro *Euro) Parse(r io.Reader) (*Leaderboard, error) {
 		var rounds []int
 
 		for _, rs := range []string{p.R1, p.R2, p.R3, p.R4, p.R5, p.R6} {
-			rounds = appendRound(rounds, rs)
+			rounds = golf.AppendRound(rounds, rs)
 		}
 
 		var totalStrokes int
@@ -108,7 +99,7 @@ func (euro *Euro) Parse(r io.Reader) (*Leaderboard, error) {
 			}
 		}
 
-		players = append(players, &Player{
+		players = append(players, &golf.Player{
 			Name:            FixEuroName(p.Name),
 			Country:         p.Countrycode,
 			Today:           today,
@@ -121,7 +112,7 @@ func (euro *Euro) Parse(r io.Reader) (*Leaderboard, error) {
 		})
 	}
 	meta := d.LeaderboardCourseInfoData[0]
-	return &Leaderboard{
+	return &golf.Leaderboard{
 		Tour:       euro.String(),
 		TourIndex:  euro.Index(),
 		Tournament: tournamentName,
@@ -131,11 +122,11 @@ func (euro *Euro) Parse(r io.Reader) (*Leaderboard, error) {
 	}, nil
 }
 
-func (euro *Euro) SetLeaderboard(lb *Leaderboard) {
+func (euro *Euro) SetLeaderboard(lb *golf.Leaderboard) {
 	euro.leaderboard = lb
 }
 
-func (euro *Euro) Leaderboard() *Leaderboard {
+func (euro *Euro) Leaderboard() *golf.Leaderboard {
 	return euro.leaderboard
 }
 
@@ -282,4 +273,31 @@ type EuroLeaderboard struct {
 		//      "ispro": "True",
 		//      "wCompCupSeasonID": "2018050"
 	}
+}
+
+func FixEuroName(s string) string {
+
+	parts := strings.Split(s, ",")
+
+	// unexpected format, just return the original string
+	if len(parts) != 2 {
+		return s
+	}
+
+	surname, name := parts[0], parts[1]
+
+	var surnameParts []string
+
+	for _, n := range strings.Split(surname, " ") {
+
+		if n == "I" || n == "II" || n == "III" || n == "IV" {
+			surnameParts = append(surnameParts, n)
+			continue
+		}
+
+		fixed := strings.TrimSpace(string(n[0]) + strings.ToLower(n[1:]))
+		surnameParts = append(surnameParts, fixed)
+	}
+
+	return strings.TrimSpace(name) + " " + strings.Join(surnameParts, " ")
 }

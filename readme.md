@@ -29,7 +29,7 @@ go get -u github.com/jacoduplessis/golf
 ## Building
 
 ```
-go build
+go build cmd/golf/golf.go
 ```
 
 The binary is named `golf`.
