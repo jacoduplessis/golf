@@ -37,6 +37,6 @@ The binary is named `golf`.
 ## Deploy
 
 ```
-rsync -zz --progress ./golf host:path
+rsync -zz ./golf host:path
 ssh root@host systemctl restart golf.service 
 ```

@@ -6,6 +6,8 @@ github.com/dustin/go-humanize v1.0.0 h1:VSnTsYCnlFHaM2/igO1h6X3HA71jcobQuxemgkq4
 github.com/dustin/go-humanize v1.0.0/go.mod h1:HtrtbFcZ19U5GC7JDqmcUSB87Iq5E25KnS6fMYU6eOk=
 github.com/gorilla/mux v1.7.3 h1:gnP5JzjVOuiZD07fKKToCAOjS0yOpj/qPETTXCCS6hw=
 github.com/gorilla/mux v1.7.3/go.mod h1:1lud6UwP+6orDFRuTfBEV8e9/aOM/c4fVVCaMa2zaAs=
+github.com/jacoduplessis/simplejson v0.5.0 h1:pKggwbp2VmDO0I38+CVdOSDSPgRTP2OGGc2AXeSwuMk=
+github.com/jacoduplessis/simplejson v0.5.0/go.mod h1:EdUYvT+QxP4kxF2zeD5bA7M969iywgLP9rxJ07+PSxc=
 github.com/jacoduplessis/twitterparse v0.0.0-20181120160910-a90841e4e2ef h1:W6cRYckY+pGghWDG3RsysRB8qv9NWPH1GUgY7FFy8tk=
 github.com/jacoduplessis/twitterparse v0.0.0-20181120160910-a90841e4e2ef/go.mod h1:6p44Fs3Id9ft7dXNiw6MRJBGLo8VtZEJInxePr8hnB4=
 github.com/jacoduplessis/twitterparse v0.1.0 h1:3Jd+3movcXEj2n4JZXVk/vaZhEf9eNiuEvwq+lGVZBg=

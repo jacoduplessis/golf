@@ -1,6 +1,10 @@
 package euro
 
-import "testing"
+import (
+	"fmt"
+	"os"
+	"testing"
+)
 
 func TestFixEuroName(t *testing.T) {
 
@@ -16,4 +20,23 @@ func TestFixEuroName(t *testing.T) {
 		t.Errorf("Expected %s, got %s", expected, r)
 	}
 
+}
+
+func TestTIDExtraction(t *testing.T) {
+
+	r, _ := os.Open("../test/euro.html")
+	defer r.Close()
+	tid, _ := extractTID(r)
+	expected := "2019090"
+
+	if tid != expected {
+		t.Errorf("Expected TID to be %s, got %s", expected, tid)
+	}
+}
+
+func TestParse(t *testing.T) {
+	r, _ := os.Open("../test/euro.json")
+	e := &Euro{}
+	lb, err := e.Parse(r)
+	fmt.Printf("%s %#v", err, lb)
 }
