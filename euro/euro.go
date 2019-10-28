@@ -106,7 +106,10 @@ func (euro *Euro) Parse(r io.Reader) (*golf.Leaderboard, error) {
 
 		var totalStrokes int
 
-		for _, r := range p.Rounds {
+		n := len(p.Rounds) - 1
+
+		for i, _ := range p.Rounds {
+			r := p.Rounds[n-i]
 			rounds = append(rounds, r.Strokes)
 			totalStrokes += r.Strokes
 		}
